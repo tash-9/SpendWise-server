@@ -12,7 +12,10 @@ import statsRoutes from "../routes/stats.js";
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: [
+  "http://localhost:5173",
+  "https://your-app-name.vercel.app"],
+  credentials: true }));
 app.use(express.json({ limit: "4mb" }));
 
 // Health check
