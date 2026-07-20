@@ -14,7 +14,8 @@ const port = process.env.PORT || 5000;
 
 app.use(cors({ origin: [
   "http://localhost:5173",
-  "https://your-app-name.vercel.app"],
+  "https://spend-wise-client-pi.vercel.app",
+  "https://spend-wise-client-git-main-tasfia-islam-raisha-s-projects.vercel.app",],
   credentials: true }));
 app.use(express.json({ limit: "4mb" }));
 
