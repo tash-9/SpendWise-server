@@ -114,17 +114,6 @@ npm run seed     # Run seed script manually
 
 ---
 
-## Environment Variables
-
-```
-MONGODB_URI=
-JWT_SECRET=
-GROQ_API_KEY=
-PORT=
-```
-
----
-
 ## Demo Credentials
 
 After seeding, log in with:
