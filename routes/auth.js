@@ -86,4 +86,36 @@ router.patch("/me", verifyToken, async (req, res) => {
   }
 });
 
+router.post("/google", async (req, res) => {
+  try {
+    const { email, name, avatar } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
+
+    const db = await connectDB();
+    let user = await db.collection("users").findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      const newUser = {
+        email: email.toLowerCase(),
+        name,
+        avatar: avatar || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
+        currency: "BDT",
+        role: "user",
+        monthlyIncome: 0,
+        passwordHash: "",
+        provider: "google",
+        createdAt: new Date(),
+      };
+      const result = await db.collection("users").insertOne(newUser);
+      newUser._id = result.insertedId;
+      user = newUser;
+    }
+
+    res.json({ token: signUser(user), user: publicUser(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Google login failed" });
+  }
+});
+
 export default router;
