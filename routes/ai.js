@@ -215,4 +215,34 @@ Current financial snapshot:
   }
 });
 
+// POST /api/ai/analyze-receipt — AI reads receipt image
+router.post("/analyze-receipt", async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ message: "imageUrl is required" });
+
+    const system = `You are a receipt analyzer. Extract expense information from receipt images.
+Always respond with ONLY a valid JSON object, no extra text.
+Extract: title (merchant/store name), amount (number only), category (one of: Food & Dining, Transport, Shopping, Entertainment, Health, Education, Bills & Utilities, Subscriptions, Travel, Other), date (YYYY-MM-DD format or today if not visible).`;
+
+    const prompt = `Analyze this receipt image: ${imageUrl}
+Return ONLY this JSON format:
+{
+  "title": "merchant name",
+  "amount": 0,
+  "category": "Food & Dining",
+  "date": "2025-07-20",
+  "notes": "brief description"
+}`;
+
+    const text = await callAI(system, prompt);
+    const clean = text.replace(/```json|```/g, "").trim();
+    const data = JSON.parse(clean);
+    res.json(data);
+  } catch (err) {
+    console.error("analyze-receipt error:", err.message);
+    res.status(500).json({ message: "Receipt analysis failed" });
+  }
+});
+
 export default router;
