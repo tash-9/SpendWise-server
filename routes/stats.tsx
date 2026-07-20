@@ -1,4 +1,5 @@
-import express from "express";
+import express, { Request, Response } from "express";
+import { Document } from "mongodb";
 import { connectDB } from "../config/db.js";
 import { verifyToken } from "../middleware/auth.js";
 
@@ -6,10 +7,10 @@ const router = express.Router();
 router.use(verifyToken);
 
 // GET /api/stats/dashboard
-router.get("/dashboard", async (req, res) => {
+router.get("/dashboard", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
-    const userId = req.user._id.toString();
+    const userId = req.user!._id.toString();
     const now = new Date();
 
     // Current month
@@ -34,20 +35,20 @@ router.get("/dashboard", async (req, res) => {
 
     const currentTotal = currentExpenses.reduce((s, e) => s + e.amount, 0);
     const prevTotal = prevExpenses.reduce((s, e) => s + e.amount, 0);
-    const income = req.user.monthlyIncome || 0;
+    const income = req.user!.monthlyIncome || 0;
     const savings = income - currentTotal;
 
     // Budget alerts (over 80%)
-    const spendByCategory = {};
+    const spendByCategory: Record<string, number> = {};
     currentExpenses.forEach((e) => {
       spendByCategory[e.category] = (spendByCategory[e.category] || 0) + e.amount;
     });
     const alerts = budgets
-      .map((b) => ({ ...b, spent: spendByCategory[b.category] || 0 }))
+      .map((b) => ({ ...(b as Document), spent: spendByCategory[b.category] || 0 }) as Document & { spent: number; limit: number })
       .filter((b) => b.spent / b.limit >= 0.8);
 
     // Monthly trend (last 6 months)
-    const trend = [];
+    const trend: { month: string; spent: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(currentStart);
       d.setMonth(d.getMonth() - i);

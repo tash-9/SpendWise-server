@@ -1,4 +1,5 @@
-import express from "express";
+import express, { Request, Response } from "express";
+import { Document } from "mongodb";
 import { connectDB, ObjectId } from "../config/db.js";
 import { verifyToken } from "../middleware/auth.js";
 import { oid, pageOptions, EXPENSE_CATEGORIES } from "../src/utils.js";
@@ -7,13 +8,13 @@ const router = express.Router();
 router.use(verifyToken);
 
 // GET /api/expenses?page=&limit=&category=&method=&month=&sort=
-router.get("/", async (req, res) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
     const { page, limit, skip } = pageOptions(req);
-    const { category, method, month, sort } = req.query;
+    const { category, method, month, sort } = req.query as Record<string, string | undefined>;
 
-    const filter = { userId: req.user._id.toString() };
+    const filter: Document = { userId: req.user!._id.toString() };
     if (category) filter.category = category;
     if (method) filter.paymentMethod = method;
     if (month) {
@@ -24,13 +25,13 @@ router.get("/", async (req, res) => {
       filter.date = { $gte: start, $lt: end };
     }
 
-    const sortMap = {
+    const sortMap: Record<string, Document> = {
       date_desc: { date: -1 },
       date_asc: { date: 1 },
       amount_desc: { amount: -1 },
       amount_asc: { amount: 1 },
     };
-    const sortOpt = sortMap[sort] || { date: -1 };
+    const sortOpt = sortMap[sort as string] || { date: -1 };
 
     const [expenses, total] = await Promise.all([
       db.collection("expenses").find(filter).sort(sortOpt).skip(skip).limit(limit).toArray(),
@@ -45,10 +46,10 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/expenses/summary?month=2025-07
-router.get("/summary", async (req, res) => {
+router.get("/summary", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
-    const month = req.query.month || new Date().toISOString().slice(0, 7);
+    const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
     const start = new Date(`${month}-01T00:00:00.000Z`);
     const end = new Date(start);
     end.setMonth(end.getMonth() + 1);
@@ -56,7 +57,7 @@ router.get("/summary", async (req, res) => {
     const pipeline = [
       {
         $match: {
-          userId: req.user._id.toString(),
+          userId: req.user!._id.toString(),
           date: { $gte: start, $lt: end },
         },
       },
@@ -71,7 +72,7 @@ router.get("/summary", async (req, res) => {
     ];
 
     const byCategory = await db.collection("expenses").aggregate(pipeline).toArray();
-    const totalSpent = byCategory.reduce((s, c) => s + c.total, 0);
+    const totalSpent = byCategory.reduce((s, c) => s + (c.total as number), 0);
 
     // Last 30 days daily trend
     const thirtyDaysAgo = new Date();
@@ -81,7 +82,7 @@ router.get("/summary", async (req, res) => {
       .aggregate([
         {
           $match: {
-            userId: req.user._id.toString(),
+            userId: req.user!._id.toString(),
             date: { $gte: thirtyDaysAgo },
           },
         },
@@ -103,7 +104,7 @@ router.get("/summary", async (req, res) => {
 });
 
 // POST /api/expenses
-router.post("/", async (req, res) => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const { title, amount, category, paymentMethod, date, notes, receiptUrl } = req.body;
     if (!title || !amount || !category)
@@ -112,8 +113,8 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Invalid category" });
 
     const db = await connectDB();
-    const expense = {
-      userId: req.user._id.toString(),
+    const expense: Document = {
+      userId: req.user!._id.toString(),
       title,
       amount: Number(amount),
       category,
@@ -132,11 +133,11 @@ router.post("/", async (req, res) => {
 });
 
 // PATCH /api/expenses/:id
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
     const { title, amount, category, paymentMethod, date, notes, receiptUrl } = req.body;
-    const update = {};
+    const update: Document = {};
     if (title) update.title = title;
     if (amount !== undefined) update.amount = Number(amount);
     if (category) update.category = category;
@@ -147,7 +148,7 @@ router.patch("/:id", async (req, res) => {
     update.updatedAt = new Date();
 
     const result = await db.collection("expenses").findOneAndUpdate(
-      { _id: oid(req.params.id), userId: req.user._id.toString() },
+      { _id: oid(req.params.id), userId: req.user!._id.toString() },
       { $set: update },
       { returnDocument: "after" }
     );
@@ -160,12 +161,12 @@ router.patch("/:id", async (req, res) => {
 });
 
 // DELETE /api/expenses/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
     const result = await db
       .collection("expenses")
-      .deleteOne({ _id: oid(req.params.id), userId: req.user._id.toString() });
+      .deleteOne({ _id: oid(req.params.id), userId: req.user!._id.toString() });
     if (result.deletedCount === 0)
       return res.status(404).json({ message: "Expense not found" });
     res.json({ message: "Deleted" });

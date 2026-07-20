@@ -1,5 +1,6 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import { Document } from "mongodb";
 import { connectDB } from "../config/db.js";
 import { publicUser, signUser } from "../src/utils.js";
 import { verifyToken } from "../middleware/auth.js";
@@ -7,7 +8,7 @@ import { verifyToken } from "../middleware/auth.js";
 const router = express.Router();
 
 // POST /api/auth/register
-router.post("/register", async (req, res) => {
+router.post("/register", async (req: Request, res: Response) => {
   try {
     const { email, name, avatar, password, currency = "BDT" } = req.body;
     if (!email || !name || !password)
@@ -20,7 +21,7 @@ router.post("/register", async (req, res) => {
     if (existing)
       return res.status(409).json({ message: "Email already registered" });
 
-    const user = {
+    const user: Document = {
       email: email.toLowerCase(),
       name,
       avatar:
@@ -43,7 +44,7 @@ router.post("/register", async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
     const user = await db.collection("users").findOne({
@@ -60,16 +61,16 @@ router.post("/login", async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get("/me", verifyToken, (req, res) => {
-  res.json(publicUser(req.user));
+router.get("/me", verifyToken, (req: Request, res: Response) => {
+  res.json(publicUser(req.user!));
 });
 
 // PATCH /api/auth/me  — update profile (income, currency, name, avatar)
-router.patch("/me", verifyToken, async (req, res) => {
+router.patch("/me", verifyToken, async (req: Request, res: Response) => {
   try {
     const { name, avatar, currency, monthlyIncome } = req.body;
     const db = await connectDB();
-    const update = {};
+    const update: Document = {};
     if (name) update.name = name;
     if (avatar) update.avatar = avatar;
     if (currency) update.currency = currency;
@@ -77,25 +78,25 @@ router.patch("/me", verifyToken, async (req, res) => {
 
     await db
       .collection("users")
-      .updateOne({ _id: req.user._id }, { $set: update });
-    const updated = await db.collection("users").findOne({ _id: req.user._id });
-    res.json(publicUser(updated));
+      .updateOne({ _id: req.user!._id }, { $set: update });
+    const updated = await db.collection("users").findOne({ _id: req.user!._id });
+    res.json(publicUser(updated!));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Profile update failed" });
   }
 });
 
-router.post("/google", async (req, res) => {
+router.post("/google", async (req: Request, res: Response) => {
   try {
     const { email, name, avatar } = req.body;
     if (!email) return res.status(400).json({ message: "Email required" });
 
     const db = await connectDB();
-    let user = await db.collection("users").findOne({ email: email.toLowerCase() });
+    let user: Document | null = await db.collection("users").findOne({ email: email.toLowerCase() });
 
     if (!user) {
-      const newUser = {
+      const newUser: Document = {
         email: email.toLowerCase(),
         name,
         avatar: avatar || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
@@ -111,7 +112,7 @@ router.post("/google", async (req, res) => {
       user = newUser;
     }
 
-    res.json({ token: signUser(user), user: publicUser(user) });
+    res.json({ token: signUser(user!), user: publicUser(user!) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Google login failed" });

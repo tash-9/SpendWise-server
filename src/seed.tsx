@@ -4,6 +4,7 @@
  */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
+import { Document } from "mongodb";
 import { connectDB } from "../config/db.js";
 import { EXPENSE_CATEGORIES } from "./utils.js";
 
@@ -11,7 +12,6 @@ const DEMO_EMAIL = "demo@spendwise.ai";
 const DEMO_PASSWORD = "demo1234";
 
 const SAMPLE_EXPENSES = [
-  // Current month
   { title: "Lunch at Gulshan", category: "Food & Dining", amount: 350, paymentMethod: "Cash" },
   { title: "Uber ride home", category: "Transport", amount: 180, paymentMethod: "Mobile Banking" },
   { title: "Netflix subscription", category: "Subscriptions", amount: 780, paymentMethod: "Card" },
@@ -32,7 +32,6 @@ const SAMPLE_EXPENSES = [
 async function seed() {
   const db = await connectDB();
 
-  // Upsert demo user
   const existing = await db.collection("users").findOne({ email: DEMO_EMAIL });
   let userId;
 
@@ -40,7 +39,7 @@ async function seed() {
     userId = existing._id;
     console.log("Demo user already exists, skipping user creation.");
   } else {
-    const user = {
+    const user: Document = {
       email: DEMO_EMAIL,
       name: "Demo User",
       avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Demo",
@@ -55,13 +54,12 @@ async function seed() {
     console.log("Created demo user:", DEMO_EMAIL);
   }
 
-  // Seed expenses for current + previous month
   await db.collection("expenses").deleteMany({ userId: userId.toString() });
 
   const now = new Date();
-  const expenses = [];
+  const expenses: Document[] = [];
 
-  for (let monthOffset of [0, -1]) {
+  for (const monthOffset of [0, -1]) {
     for (const e of SAMPLE_EXPENSES) {
       const date = new Date(now.getFullYear(), now.getMonth() + monthOffset, Math.floor(Math.random() * 28) + 1);
       expenses.push({
@@ -78,11 +76,10 @@ async function seed() {
   await db.collection("expenses").insertMany(expenses);
   console.log(`Inserted ${expenses.length} expenses`);
 
-  // Seed budgets for current month
   const month = now.toISOString().slice(0, 7);
   await db.collection("budgets").deleteMany({ userId: userId.toString(), month });
 
-  const budgets = [
+  const budgets: Document[] = [
     { category: "Food & Dining", limit: 5000 },
     { category: "Transport", limit: 1500 },
     { category: "Subscriptions", limit: 1000 },
@@ -100,9 +97,8 @@ async function seed() {
   await db.collection("budgets").insertMany(budgets);
   console.log("Seeded budgets");
 
-  // Seed goals
   await db.collection("goals").deleteMany({ userId: userId.toString() });
-  const goals = [
+  const goals: Document[] = [
     { title: "Emergency Fund", icon: "🛡️", targetAmount: 100000, savedAmount: 32000, description: "6 months of expenses as safety net" },
     { title: "New Laptop", icon: "💻", targetAmount: 80000, savedAmount: 15000, description: "MacBook for development work", deadline: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) },
     { title: "Vacation Fund", icon: "✈️", targetAmount: 50000, savedAmount: 8000, description: "Trip to Thailand", deadline: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) },

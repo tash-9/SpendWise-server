@@ -1,9 +1,9 @@
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient, Db, ObjectId } from "mongodb";
 
-let client;
-let db;
+let client: MongoClient;
+let db: Db;
 
-export async function connectDB() {
+export async function connectDB(): Promise<Db> {
   if (db) return db;
   if (!process.env.MONGODB_URI)
     throw new Error("MONGODB_URI environment variable is required");

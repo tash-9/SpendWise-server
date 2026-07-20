@@ -1,4 +1,5 @@
-import express from "express";
+import express, { Request, Response } from "express";
+import { Document } from "mongodb";
 import { connectDB } from "../config/db.js";
 import { verifyToken } from "../middleware/auth.js";
 import { oid, EXPENSE_CATEGORIES } from "../src/utils.js";
@@ -7,13 +8,13 @@ const router = express.Router();
 router.use(verifyToken);
 
 // GET /api/budgets?month=2025-07
-router.get("/", async (req, res) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
-    const month = req.query.month || new Date().toISOString().slice(0, 7);
+    const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
     const budgets = await db
       .collection("budgets")
-      .find({ userId: req.user._id.toString(), month })
+      .find({ userId: req.user!._id.toString(), month })
       .toArray();
 
     // Enrich with actual spending
@@ -26,7 +27,7 @@ router.get("/", async (req, res) => {
       .aggregate([
         {
           $match: {
-            userId: req.user._id.toString(),
+            userId: req.user!._id.toString(),
             date: { $gte: start, $lt: end },
           },
         },
@@ -34,7 +35,9 @@ router.get("/", async (req, res) => {
       ])
       .toArray();
 
-    const spendMap = Object.fromEntries(spending.map((s) => [s._id, s.spent]));
+    const spendMap: Record<string, number> = Object.fromEntries(
+      spending.map((s) => [s._id, s.spent])
+    );
     const enriched = budgets.map((b) => ({
       ...b,
       spent: spendMap[b.category] || 0,
@@ -49,7 +52,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/budgets
-router.post("/", async (req, res) => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const { category, limit, month } = req.body;
     if (!category || !limit)
@@ -62,7 +65,7 @@ router.post("/", async (req, res) => {
 
     // Upsert — one budget per category per month per user
     const result = await db.collection("budgets").findOneAndUpdate(
-      { userId: req.user._id.toString(), category, month: m },
+      { userId: req.user!._id.toString(), category, month: m },
       { $set: { limit: Number(limit), updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
       { upsert: true, returnDocument: "after" }
     );
@@ -74,12 +77,12 @@ router.post("/", async (req, res) => {
 });
 
 // DELETE /api/budgets/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
     await db
       .collection("budgets")
-      .deleteOne({ _id: oid(req.params.id), userId: req.user._id.toString() });
+      .deleteOne({ _id: oid(req.params.id), userId: req.user!._id.toString() });
     res.json({ message: "Deleted" });
   } catch (err) {
     console.error(err);

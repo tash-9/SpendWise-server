@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { connectDB } from "../config/db.js";
 import authRoutes from "../routes/auth.js";
@@ -19,7 +19,7 @@ app.use(cors({
 app.use(express.json({ limit: "4mb" }));
 
 // Health check
-app.get("/", async (req, res) => {
+app.get("/", async (req: Request, res: Response) => {
   try {
     await connectDB();
     res.json({
@@ -41,8 +41,8 @@ app.use("/api/goals", goalRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/stats", statsRoutes);
 
-app.use((req, res) => res.status(404).json({ message: "Route not found" }));
-app.use((err, req, res, next) => {
+app.use((req: Request, res: Response) => res.status(404).json({ message: "Route not found" }));
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err);
   res.status(500).json({ message: "Internal server error" });
 });
@@ -53,7 +53,7 @@ connectDB()
       console.log(`SpendWise AI API running on port ${port}`)
     );
   })
-  .catch((err) => {
+  .catch((err: Error) => {
     console.error("Failed to connect to database:", err);
     process.exit(1);
   });

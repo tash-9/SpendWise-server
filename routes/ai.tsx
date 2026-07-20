@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import { connectDB, ObjectId } from "../config/db.js";
 import { verifyToken } from "../middleware/auth.js";
 
@@ -8,7 +8,7 @@ router.use(verifyToken);
 const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
 const MODEL = "llama-3.3-70b-versatile";
 
-async function callAI(systemPrompt, userMessage) {
+async function callAI(systemPrompt: string, userMessage: string): Promise<string> {
   const res = await fetch(GROQ_API, {
     method: "POST",
     headers: {
@@ -32,7 +32,7 @@ async function callAI(systemPrompt, userMessage) {
   return data.choices[0].message.content;
 }
 
-async function buildUserContext(userId, db) {
+async function buildUserContext(userId: InstanceType<typeof ObjectId>, db: Awaited<ReturnType<typeof connectDB>>) {
   const month = new Date().toISOString().slice(0, 7);
   const start = new Date(`${month}-01T00:00:00.000Z`);
   const end = new Date(start);
@@ -46,11 +46,11 @@ async function buildUserContext(userId, db) {
   ]);
 
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
-  const byCategory = {};
+  const byCategory: Record<string, number> = {};
   expenses.forEach((e) => { byCategory[e.category] = (byCategory[e.category] || 0) + e.amount; });
 
   return {
-    user: { name: user.name, income: user.monthlyIncome || 0 },
+    user: { name: user!.name, income: user!.monthlyIncome || 0 },
     month,
     totalSpent,
     byCategory,
@@ -59,10 +59,10 @@ async function buildUserContext(userId, db) {
   };
 }
 
-router.post("/spending-coach", async (req, res) => {
+router.post("/spending-coach", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
-    const ctx = await buildUserContext(req.user._id, db);
+    const ctx = await buildUserContext(req.user!._id, db);
     const system = `You are a personal spending coach AI integrated into SpendWise, a budget management app.
 You have access to the user's real financial data for the current month.
 Be specific, empathetic, and actionable. Keep responses under 200 words.
@@ -77,17 +77,17 @@ Provide 3-4 specific, personalized insights about their spending this month. Poi
     const analysis = await callAI(system, prompt);
     res.json({ analysis });
   } catch (err) {
-    console.error("spending-coach error:", err.message);
+    console.error("spending-coach error:", (err as Error).message);
     res.status(500).json({ message: "AI analysis failed" });
   }
 });
 
-router.post("/purchase-advisor", async (req, res) => {
+router.post("/purchase-advisor", async (req: Request, res: Response) => {
   try {
     const { item, price } = req.body;
     if (!item || !price) return res.status(400).json({ message: "Item name and price are required" });
     const db = await connectDB();
-    const ctx = await buildUserContext(req.user._id, db);
+    const ctx = await buildUserContext(req.user!._id, db);
     const system = `You are a Purchase Advisor AI in SpendWise.
 Analyze whether a user can afford a specific purchase given their current financial situation.
 Be direct, honest, and helpful. Consider their savings goals and remaining budget.
@@ -100,27 +100,27 @@ Should they buy this now? Give a clear YES/WAIT/NO recommendation with 2-3 sente
     const advice = await callAI(system, prompt);
     res.json({ advice });
   } catch (err) {
-    console.error("purchase-advisor error:", err.message);
+    console.error("purchase-advisor error:", (err as Error).message);
     res.status(500).json({ message: "Purchase advice failed" });
   }
 });
 
-router.post("/weekly-reflection", async (req, res) => {
+router.post("/weekly-reflection", async (req: Request, res: Response) => {
   try {
     const db = await connectDB();
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const [expenses, budgets] = await Promise.all([
-      db.collection("expenses").find({ userId: req.user._id.toString(), date: { $gte: sevenDaysAgo } }).toArray(),
-      db.collection("budgets").find({ userId: req.user._id.toString() }).toArray(),
+      db.collection("expenses").find({ userId: req.user!._id.toString(), date: { $gte: sevenDaysAgo } }).toArray(),
+      db.collection("budgets").find({ userId: req.user!._id.toString() }).toArray(),
     ]);
     const weekTotal = expenses.reduce((s, e) => s + e.amount, 0);
-    const byCategory = {};
+    const byCategory: Record<string, number> = {};
     expenses.forEach((e) => { byCategory[e.category] = (byCategory[e.category] || 0) + e.amount; });
     const system = `You are a Weekly Reflection AI in SpendWise.
 Generate a concise weekly financial recap with: ✅ wins, ⚠ warnings, 💡 insights.
 Keep it friendly and specific. Under 180 words. Use actual numbers from the data.`;
-    const prompt = `User: ${req.user.name}
+    const prompt = `User: ${req.user!.name}
 Past 7 days of expenses: ${JSON.stringify(expenses.map((e) => ({ category: e.category, amount: e.amount, title: e.title })))}
 Total spent this week: ${weekTotal}
 Monthly budgets: ${JSON.stringify(budgets)}
@@ -129,22 +129,22 @@ Generate their weekly reflection report.`;
     const reflection = await callAI(system, prompt);
     res.json({ reflection });
   } catch (err) {
-    console.error("weekly-reflection error:", err.message);
+    console.error("weekly-reflection error:", (err as Error).message);
     res.status(500).json({ message: "Weekly reflection failed" });
   }
 });
 
-router.post("/goal-coach", async (req, res) => {
+router.post("/goal-coach", async (req: Request, res: Response) => {
   try {
     const { goalId } = req.body;
     if (!goalId) return res.status(400).json({ message: "goalId is required" });
     const db = await connectDB();
     const goalDoc = await db.collection("goals").findOne({
       _id: new ObjectId(goalId),
-      userId: req.user._id.toString(),
+      userId: req.user!._id.toString(),
     });
     if (!goalDoc) return res.status(404).json({ message: "Goal not found" });
-    const ctx = await buildUserContext(req.user._id, db);
+    const ctx = await buildUserContext(req.user!._id, db);
     const system = `You are a Goal Coach AI in SpendWise.
 Help the user create a concrete, achievable plan to reach their savings goal.
 Be specific with monthly savings targets. Suggest which spending categories to reduce.
@@ -161,18 +161,18 @@ Create a personalized savings plan for this goal.`;
     const plan = await callAI(system, prompt);
     res.json({ plan });
   } catch (err) {
-    console.error("goal-coach error:", err.message);
+    console.error("goal-coach error:", (err as Error).message);
     res.status(500).json({ message: "Goal coaching failed" });
   }
 });
 
-router.post("/chat", async (req, res) => {
+router.post("/chat", async (req: Request, res: Response) => {
   try {
     const { message, history = [] } = req.body;
     if (!message) return res.status(400).json({ message: "Message is required" });
     const db = await connectDB();
-    const ctx = await buildUserContext(req.user._id, db);
-    const systemPrompt = `You are FinBot, ${req.user.name}'s personal financial assistant inside SpendWise.
+    const ctx = await buildUserContext(req.user!._id, db);
+    const systemPrompt = `You are FinBot, ${req.user!.name}'s personal financial assistant inside SpendWise.
 You have real-time access to their financial data. Be conversational, specific, and helpful.
 Answer questions about their spending, budgets, and goals using their actual data.
 Keep responses concise (under 150 words) unless a detailed explanation is needed.
@@ -185,7 +185,7 @@ Current financial snapshot:
 - Goals: ${JSON.stringify(ctx.goals)}`;
     const messages = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-10).map((h) => ({ role: h.role, content: h.content })),
+      ...history.slice(-10).map((h: { role: string; content: string }) => ({ role: h.role, content: h.content })),
       { role: "user", content: message },
     ];
     const aiRes = await fetch(GROQ_API, {
@@ -203,20 +203,20 @@ Current financial snapshot:
     const data = await aiRes.json();
     const reply = data.choices[0].message.content;
     await db.collection("chatHistory").insertOne({
-      userId: req.user._id.toString(),
+      userId: req.user!._id.toString(),
       userMessage: message,
       aiReply: reply,
       createdAt: new Date(),
     });
     res.json({ reply });
   } catch (err) {
-    console.error("chat error:", err.message);
+    console.error("chat error:", (err as Error).message);
     res.status(500).json({ message: "Chat failed" });
   }
 });
 
 // POST /api/ai/analyze-receipt — AI reads receipt image
-router.post("/analyze-receipt", async (req, res) => {
+router.post("/analyze-receipt", async (req: Request, res: Response) => {
   try {
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ message: "imageUrl is required" });
@@ -240,7 +240,7 @@ Return ONLY this JSON format:
     const data = JSON.parse(clean);
     res.json(data);
   } catch (err) {
-    console.error("analyze-receipt error:", err.message);
+    console.error("analyze-receipt error:", (err as Error).message);
     res.status(500).json({ message: "Receipt analysis failed" });
   }
 });

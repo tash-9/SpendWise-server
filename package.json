@@ -5,11 +5,18 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
-    "seed": "node src/seed.js"
+    "dev": "nodemon --exec tsx src/index.tsx",
+    "build": "tsc",
+    "start": "npm run build && node dist/src/index.js",
+    "seed": "tsx src/seed.tsx"
   },
-  "keywords": ["budget", "expense", "ai", "finance", "mern"],
+  "keywords": [
+    "budget",
+    "expense",
+    "ai",
+    "finance",
+    "mern"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -21,6 +28,13 @@
     "mongodb": "^6.8.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.1.1",
+    "nodemon": "^3.1.4",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
   }
 }

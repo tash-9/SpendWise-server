@@ -1,18 +1,30 @@
+import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { Document, WithId } from "mongodb";
 import { connectDB, ObjectId } from "../config/db.js";
 
-/**
- * verifyToken — attaches req.user or returns 401.
- * Single source of truth for authentication; no duplicate middleware files.
- */
-export async function verifyToken(req, res, next) {
+interface JwtPayload {
+  id: string;
+  email: string;
+  role: string;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: WithId<Document>;
+    }
+  }
+}
+
+export async function verifyToken(req: Request, res: Response, next: NextFunction) {
   try {
     const header = req.headers.authorization || "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : null;
     if (!token)
       return res.status(401).json({ message: "Authentication token missing" });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
     const db = await connectDB();
     const user = await db
       .collection("users")
@@ -26,9 +38,9 @@ export async function verifyToken(req, res, next) {
   }
 }
 
-export function requireRole(...roles) {
-  return (req, res, next) => {
-    if (!roles.includes(req.user?.role)) {
+export function requireRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!roles.includes(req.user?.role as string)) {
       return res.status(403).json({ message: "Forbidden: insufficient permissions" });
     }
     next();
